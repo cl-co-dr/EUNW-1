@@ -1,0 +1,14 @@
+[Unit]
+Description=BSC systemd service
+StartLimitIntervalSec=0
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/datassd/BSC/mainnet
+ExecStart= /datassd/BSC/geth_linux --config /datassd/BSC/config.toml --datadir /datassd/BSC/mainnet/data   --cache 8000 --rpc.allow-unprotected-txs --ws.addr=0.0.0.0 --ws.api=admin,eth,net,web3,txpool,debug --ws --ws.port 8548 --syncmode=full --pruneancient=true  --metrics.port 9773 --metrics.addr 0.0.0.0 --metrics  --history.transactions=90000
+LimitNOFILE=327680
+Restart=always
+RestartSec=3
+TimeoutSec=300
+[Install]
+WantedBy=multi-user.target

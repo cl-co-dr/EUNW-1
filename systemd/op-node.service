@@ -1,0 +1,20 @@
+[Unit]
+Description=BSC systemd service
+StartLimitIntervalSec=0
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/local/bin/op-node   --l1=http://142.132.158.186:8545  --l1.trustrpc   --l1.rpckind=erigon --l2=http://localhost:8751   --network=op-mainnet \
+--l1.beacon http://142.132.158.186:3500 \
+  --verifier.l1-confs=2   --l1.epoch-poll-interval=2m   --rpc.enable-admin   --rpc.addr=0.0.0.0   --rpc.port=9645 \
+  --metrics.enabled   --metrics.addr=0.0.0.0   --metrics.port=6870 \
+  --l2.jwt-secret=/root/DRPC/OPTIMISM/jwt.txt   --pprof.enabled   --pprof.addr=0.0.0.0   --pprof.port=6860 \
+  --p2p.priv.path=/root/DRPC/OPTIMISM/data/p2p_priv.txt   --p2p.peerstore.path=/root/DRPC/OPTIMISM/data/opnode_peerstore_db \
+  --p2p.discovery.path=/root/DRPC/OPTIMISM/data/opnode_discovery_db   --p2p.listen.ip=0.0.0.0   --p2p.listen.tcp=2020 \
+  --p2p.listen.udp=2020   --p2p.peers.lo=10    --l2.enginekind=reth   --p2p.peers.hi=20   --p2p.nat   --log.level=info   --log.format=logfmt --syncmode=execution-layer 
+LimitNOFILE=327680
+Restart=always
+RestartSec=3
+TimeoutSec=300
+[Install]
+WantedBy=multi-user.target

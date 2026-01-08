@@ -1,0 +1,17 @@
+[Unit]
+Description=BSC systemd service
+StartLimitIntervalSec=0
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/local/bin/op-geth   --ws   --ws.port=8746   --ws.addr=0.0.0.0   --ws.origins="*"   --ws.api=debug,eth,net,trace,txpool,web3,rpc   --http   --http.port=8745   --http.addr=0.0.0.0   --http.vhosts="*" \
+--http.corsdomain="*"   --http.api=debug,eth,net,trace,txpool,web3,rpc   --authrpc.addr=localhost   --authrpc.jwtsecret=/root/DRPC/OPTIMISM/jwt.txt  \
+--authrpc.port=8751   --authrpc.vhosts="*"   --datadir=/root/DRPC/OPTIMISM/data_geth   --verbosity=3   --rollup.disabletxpoolgossip=true --port 34303 \
+--rollup.sequencerhttp=https://mainnet-sequencer.optimism.io    --verbosity=3   --metrics   --metrics.addr=0.0.0.0   --metrics.port=6770 \
+--op-network=op-mainnet   --pprof   --pprof.addr=0.0.0.0   --pprof.port=6760   --snapshot=false --syncmode=snap  --state.scheme=path
+LimitNOFILE=327680
+Restart=always
+RestartSec=3
+TimeoutSec=300
+[Install]
+WantedBy=multi-user.target
