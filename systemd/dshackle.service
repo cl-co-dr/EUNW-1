@@ -1,0 +1,16 @@
+[Unit]
+Description=dshackle for drpc
+After=network.target
+
+[Service]
+User=root
+Type=simple
+WorkingDirectory=/opt/dshackle
+Environment="JAVA_HOME=/usr/lib/jvm/jdk-21.0.8-oracle-x64"
+ExecStart=/opt/dshackle/bin/dshackle
+Restart=on-failure
+LimitNOFILE=655351
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
