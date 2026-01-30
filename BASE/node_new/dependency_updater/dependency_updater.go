@@ -64,7 +64,7 @@ func main() {
 			},
 		},
 		Action: func(ctx context.Context, cmd *cli.Command) error {
-			err := updater(string(cmd.String("token")), string(cmd.String("repo")), cmd.Bool("commit"), cmd.Bool("github-action"))
+			err := updater(cmd.String("token"), cmd.String("repo"), cmd.Bool("commit"), cmd.Bool("github-action"))
 			if err != nil {
 				return fmt.Errorf("failed to run updater: %s", err)
 			}
@@ -92,7 +92,7 @@ func updater(token string, repoPath string, commit bool, githubAction bool) erro
 
 	err = json.Unmarshal(f, &dependencies)
 	if err != nil {
-		return fmt.Errorf("error unmarshaling versions JSON to dependencies: %s", err)
+		return fmt.Errorf("error unmarshalling versions JSON to dependencies: %s", err)
 	}
 
 	for dependency := range dependencies {
@@ -133,23 +133,26 @@ func updater(token string, repoPath string, commit bool, githubAction bool) erro
 
 func createCommitMessage(updatedDependencies []VersionUpdateInfo, repoPath string, githubAction bool) error {
 	var repos []string
+	descriptionLines := []string{
+		"### Dependency Updates",
+	}
+
 	commitTitle := "chore: updated "
-	commitDescription := "Updated dependencies for: "
 
 	for _, dependency := range updatedDependencies {
 		repo, tag := dependency.Repo, dependency.To
-		commitDescription += repo + " => " + tag + " (" + dependency.DiffUrl + ") "
+		descriptionLines = append(descriptionLines, fmt.Sprintf("**%s** - %s:  [diff](%s)", repo, tag, dependency.DiffUrl))
 		repos = append(repos, repo)
 	}
-	commitDescription = strings.TrimSuffix(commitDescription, " ")
+	commitDescription := strings.Join(descriptionLines, "\n")
 	commitTitle += strings.Join(repos, ", ")
-	
+
 	if githubAction {
 		err := writeToGithubOutput(commitTitle, commitDescription, repoPath)
 		if err != nil {
 			return fmt.Errorf("error creating git commit message: %s", err)
 		}
-	} else if !githubAction {
+	} else {
 		cmd := exec.Command("git", "commit", "-am", commitTitle, "-m", commitDescription)
 		if err := cmd.Run(); err != nil {
 			return fmt.Errorf("failed to run git commit -m: %s", err)
@@ -174,75 +177,111 @@ func getAndUpdateDependency(ctx context.Context, client *github.Client, dependen
 }
 
 func getVersionAndCommit(ctx context.Context, client *github.Client, dependencies Dependencies, dependencyType string) (string, string, VersionUpdateInfo, error) {
-	var version *github.RepositoryRelease
+	var selectedTag *github.RepositoryTag
 	var commit string
 	var diffUrl string
 	var updatedDependency VersionUpdateInfo
-	foundPrefixVersion := false
 	options := &github.ListOptions{Page: 1}
-	if dependencies[dependencyType].Tracking == "tag" {
+	currentTag := dependencies[dependencyType].Tag
+	tagPrefix := dependencies[dependencyType].TagPrefix
+
+	if dependencies[dependencyType].Tracking == "tag" || dependencies[dependencyType].Tracking == "release" {
+		// Collect all valid tags across all pages, then find the max version
+		var validTags []*github.RepositoryTag
+		trackingMode := dependencies[dependencyType].Tracking
+
 		for {
-			releases, resp, err := client.Repositories.ListReleases(
+			tags, resp, err := client.Repositories.ListTags(
 				ctx,
 				dependencies[dependencyType].Owner,
 				dependencies[dependencyType].Repo,
 				options)
 
 			if err != nil {
-				return "", "", VersionUpdateInfo{}, fmt.Errorf("error getting releases: %s", err)
+				return "", "", VersionUpdateInfo{}, fmt.Errorf("error getting tags: %s", err)
 			}
 
-			if dependencies[dependencyType].TagPrefix == "" {
-				version = releases[0]
-				if *version.TagName != dependencies[dependencyType].Tag {
-					diffUrl = generateGithubRepoUrl(dependencies, dependencyType) + "/compare/" +
-						dependencies[dependencyType].Tag + "..." + *version.TagName
+			for _, tag := range tags {
+				// Skip if tagPrefix is set and doesn't match
+				if tagPrefix != "" && !strings.HasPrefix(*tag.Name, tagPrefix) {
+					continue
 				}
-				break
-			} else if dependencies[dependencyType].TagPrefix != "" {
-				for release := range releases {
-					if strings.HasPrefix(*releases[release].TagName, dependencies[dependencyType].TagPrefix) {
-						version = releases[release]
-						foundPrefixVersion = true
-						if *version.TagName != dependencies[dependencyType].Tag {
-							diffUrl = generateGithubRepoUrl(dependencies, dependencyType) + "/compare/" +
-								dependencies[dependencyType].Tag + "..." + *version.TagName
-						}
-						break
+
+				// Filter based on tracking mode:
+				// - "release": only stable releases (no prerelease suffix)
+				// - "tag": releases and RC versions only (exclude -synctest, -alpha, etc.)
+				if trackingMode == "release" {
+					if !IsReleaseVersion(*tag.Name, tagPrefix) {
+						continue
+					}
+				} else if trackingMode == "tag" {
+					if !IsReleaseOrRCVersion(*tag.Name, tagPrefix) {
+						continue
 					}
 				}
-				if foundPrefixVersion {
-					break
+
+				// Check if this is a valid upgrade (not a downgrade)
+				if err := ValidateVersionUpgrade(currentTag, *tag.Name, tagPrefix); err != nil {
+					continue
 				}
-				options.Page = resp.NextPage
-			} else if resp.NextPage == 0 {
+
+				validTags = append(validTags, tag)
+			}
+
+			if resp.NextPage == 0 {
 				break
 			}
+			options.Page = resp.NextPage
 		}
+
+		// Find the maximum version among valid tags
+		for _, tag := range validTags {
+			// Skip if this tag can't be parsed
+			if _, err := ParseVersion(*tag.Name, tagPrefix); err != nil {
+				log.Printf("Skipping unparseable tag %s: %v", *tag.Name, err)
+				continue
+			}
+
+			if selectedTag == nil {
+				selectedTag = tag
+				continue
+			}
+
+			cmp, err := CompareVersions(*tag.Name, *selectedTag.Name, tagPrefix)
+			if err != nil {
+				log.Printf("Error comparing versions %s and %s: %v", *tag.Name, *selectedTag.Name, err)
+				continue
+			}
+			if cmp > 0 {
+				selectedTag = tag
+			}
+		}
+
+		// If no valid version found, keep current version
+		if selectedTag == nil {
+			log.Printf("No valid upgrade found for %s, keeping %s", dependencyType, currentTag)
+			return currentTag, dependencies[dependencyType].Commit, VersionUpdateInfo{}, nil
+		}
+
+		if *selectedTag.Name != currentTag {
+			diffUrl = generateGithubRepoUrl(dependencies, dependencyType) + "/compare/" +
+				currentTag + "..." + *selectedTag.Name
+		}
+
+		// Get commit SHA from the tag
+		commit = *selectedTag.Commit.SHA
 	}
 
 	if diffUrl != "" {
 		updatedDependency = VersionUpdateInfo{
 			dependencies[dependencyType].Repo,
 			dependencies[dependencyType].Tag,
-			*version.TagName,
+			*selectedTag.Name,
 			diffUrl,
 		}
 	}
 
-	if dependencies[dependencyType].Tracking == "tag" {
-		versionCommit, _, err := client.Repositories.GetCommit(
-			ctx,
-			dependencies[dependencyType].Owner,
-			dependencies[dependencyType].Repo,
-			"refs/tags/"+*version.TagName,
-			&github.ListOptions{})
-		if err != nil {
-			return "", "", VersionUpdateInfo{}, fmt.Errorf("error getting commit for "+dependencyType+": %s", err)
-		}
-		commit = *versionCommit.SHA
-
-	} else if dependencies[dependencyType].Tracking == "branch" {
+	if dependencies[dependencyType].Tracking == "branch" {
 		branchCommit, _, err := client.Repositories.ListCommits(
 			ctx,
 			dependencies[dependencyType].Owner,
@@ -256,18 +295,19 @@ func getVersionAndCommit(ctx context.Context, client *github.Client, dependencie
 		}
 		commit = *branchCommit[0].SHA
 		if dependencies[dependencyType].Commit != commit {
-			diff := dependencies[dependencyType].Commit + " => " + commit
+			from, to := dependencies[dependencyType].Commit, commit
+			diffUrl = fmt.Sprintf("%s/compare/%s...%s", generateGithubRepoUrl(dependencies, dependencyType), from, to)
 			updatedDependency = VersionUpdateInfo{
 				dependencies[dependencyType].Repo,
 				dependencies[dependencyType].Tag,
 				commit,
-				diff,
+				diffUrl,
 			}
 		}
 	}
 
-	if version != nil {
-		return *version.TagName, commit, updatedDependency, nil
+	if selectedTag != nil {
+		return *selectedTag.Name, commit, updatedDependency, nil
 	}
 
 	return "", commit, updatedDependency, nil
@@ -312,6 +352,10 @@ func createVersionsEnv(repoPath string, dependencies Dependencies) error {
 
 		dependencyPrefix := strings.ToUpper(dependency)
 
+		if dependencies[dependency].Tracking == "branch" {
+			dependencies[dependency].Tag = dependencies[dependency].Branch
+		}
+
 		envLines = append(envLines, fmt.Sprintf("export %s_%s=%s",
 			dependencyPrefix, "TAG", dependencies[dependency].Tag))
 
@@ -352,7 +396,8 @@ func writeToGithubOutput(title string, description string, repoPath string) erro
 		return fmt.Errorf("failed to write to GITHUB_OUTPUT file: %s", err)
 	}
 
-	descToWrite := fmt.Sprintf("%s=%s\n", "DESC", description)
+	delimiter := "EOF"
+	descToWrite := fmt.Sprintf("%s<<%s\n%s\n%s\n", "DESC", delimiter, description, delimiter)
 	_, err = f.WriteString(descToWrite)
 	if err != nil {
 		return fmt.Errorf("failed to write to GITHUB_OUTPUT file: %s", err)

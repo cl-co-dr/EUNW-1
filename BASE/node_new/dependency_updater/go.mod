@@ -1,4 +1,4 @@
-module dependency_updater
+module github.com/base/node/dependency_updater
 
 go 1.24.3
 
@@ -8,4 +8,7 @@ require (
 	github.com/urfave/cli/v3 v3.3.8
 )
 
-require github.com/google/go-querystring v1.1.0 // indirect
+require (
+	github.com/Masterminds/semver/v3 v3.4.0 // indirect
+	github.com/google/go-querystring v1.1.0 // indirect
+)
