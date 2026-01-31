@@ -47,12 +47,12 @@ exec $BINARY node \
   --ws.origins="*" \
   --ws.addr=0.0.0.0 \
   --ws.port="$WS_PORT" \
-  --ws.api=debug,eth,net,txpool,trace,web3,reth \
+  --ws.api=all \
   --http \
   --http.corsdomain="*" \
   --http.addr=0.0.0.0 \
   --http.port="$RPC_PORT" \
-  --http.api=debug,eth,net,txpool,trace,web3,reth \
+  --http.api=all \
   --ipcpath="$IPC_PATH" \
   --authrpc.addr=0.0.0.0 \
   --authrpc.port="$AUTHRPC_PORT" \
