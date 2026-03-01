@@ -48,6 +48,7 @@ exec $BINARY node \
   --ws.addr=0.0.0.0 \
   --ws.port="$WS_PORT" \
   --ws.api=all \
+  --rpc.eth-proof-window 43200 \
   --http \
   --http.corsdomain="*" \
   --http.addr=0.0.0.0 \
