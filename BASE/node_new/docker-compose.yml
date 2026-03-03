@@ -18,8 +18,8 @@ services:
     env_file:
       - ${NETWORK_ENV:-.env.mainnet} # Use .env.mainnet by default, override with .env.sepolia for testnet
     # ?? ADD MEMORY LIMITS HERE
-    mem_limit: 90g
-    memswap_limit: 150g
+    # mem_limit: 90g
+    #memswap_limit: 150g
   node:
     build:
       context: .
