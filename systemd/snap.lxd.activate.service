@@ -12,7 +12,7 @@ ExecStart=/usr/bin/snap run lxd.activate
 SyslogIdentifier=lxd.activate
 Restart=no
 WorkingDirectory=/var/snap/lxd/38469
-TimeoutStopSec=30
+TimeoutStopSec=30s
 Type=oneshot
 Delegate=true
 

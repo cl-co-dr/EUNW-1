@@ -14,6 +14,6 @@ Restart=on-failure
 WorkingDirectory=/var/snap/lxd/38469
 ExecStop=/usr/bin/snap run --command=stop lxd.daemon
 ExecReload=/usr/bin/snap run --command=reload lxd.daemon
-TimeoutStopSec=600
+TimeoutStopSec=10m0s
 Type=simple
 Delegate=true
