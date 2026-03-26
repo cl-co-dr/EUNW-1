@@ -61,36 +61,36 @@ cluster:
             url: "http://127.0.0.1:8545"
           ws:
             url: "ws://127.0.0.1:8546"
-    - id: bsc                               
-      chain: bsc                            
-      method-groups:                        
-        enabled:                            
-          - trace                           
-          - debug                           
-          - filter                          
-      methods:                              
-        disabled:                           
-          - name: trace_callMany            
-      connection:                           
-        generic:                            
-          rpc:                              
-            queue-size: 25000
-            max-connections: 3000
-            url: http://127.0.0.1:8547      
-          ws:                               
-            url: ws://127.0.0.1:8548        
-    - id: optimism                           
-      chain: optimism                        
-      method-groups:                        
-        enabled:                            
-          - trace                           
-          - debug                           
-          - filter                          
-      connection:                           
-        generic:                            
-          rpc:                              
-            queue-size: 25000
-            max-connections: 3000
-            url: http://127.0.0.1:8745
-          ws:                               
-            url: ws://127.0.0.1:8746   
+#    - id: bsc                               
+#      chain: bsc                            
+#      method-groups:                        
+#        enabled:                            
+#          - trace                           
+#          - debug                           
+#          - filter                          
+#      methods:                              
+#        disabled:                           
+#          - name: trace_callMany            
+#      connection:                           
+#        generic:                            
+#          rpc:                              
+#            queue-size: 25000
+#            max-connections: 3000
+#            url: http://127.0.0.1:8547      
+#          ws:                               
+#            url: ws://127.0.0.1:8548        
+#    - id: optimism                           
+#      chain: optimism                        
+#      method-groups:                        
+#        enabled:                            
+#          - trace                           
+#          - debug                           
+#          - filter                          
+#      connection:                           
+#        generic:                            
+#          rpc:                              
+#            queue-size: 25000
+#            max-connections: 3000
+#            url: http://127.0.0.1:8745
+#          ws:                               
+#            url: ws://127.0.0.1:8746   
