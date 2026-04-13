@@ -1,9 +1,9 @@
 [Unit]
 # Auto-generated, DO NOT EDIT
 Description=Service for snap application lxd.user-daemon
-Requires=snap-lxd-38469.mount
+Requires=snap-lxd-38800.mount
 Wants=network.target
-After=snap-lxd-38469.mount network.target snapd.apparmor.service
+After=snap-lxd-38800.mount network.target snapd.apparmor.service
 X-Snappy=yes
 
 [Service]
@@ -11,7 +11,7 @@ EnvironmentFile=-/etc/environment
 ExecStart=/usr/bin/snap run lxd.user-daemon
 SyslogIdentifier=lxd.user-daemon
 Restart=on-failure
-WorkingDirectory=/var/snap/lxd/38469
+WorkingDirectory=/var/snap/lxd/38800
 TimeoutStopSec=10m0s
 Type=simple
 Delegate=true
